@@ -1,30 +1,30 @@
-import { Redirect } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Index() {
-  const { session, loading, signOut } = useAuth();
+  const { session, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!session) {
-    return <Redirect href="/(auth)/login" />;
-  }
+  useEffect(() => {
+    if (!loading) {
+      if (session) {
+        router.replace("/screen/home");
+      } else {
+        router.replace("/(auth)/login");
+      }
+    }
+  }, [session, loading]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Health Tracker!</Text>
-      <Text style={styles.subtitle}>Email: {session.user.email}</Text>
-
-      <TouchableOpacity style={styles.button} onPress={signOut}>
-        <Text style={styles.buttonText}>Sign Out</Text>
-      </TouchableOpacity>
+      <View style={styles.brandContainer}>
+        <Text style={styles.brandName}>HealthTrack</Text>
+        <View style={styles.brandDot} />
+      </View>
+      <ActivityIndicator size="large" color="#FF6B7A" style={styles.loader} />
+      <Text style={styles.loadingText}>Loading...</Text>
     </View>
   );
 }
@@ -32,30 +32,34 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    marginBottom: 30,
-    color: "#666",
-  },
-  button: {
-    backgroundColor: "#FF3B30",
-    padding: 12,
-    borderRadius: 8,
-    minWidth: 120,
+  brandContainer: {
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: 40,
   },
-  buttonText: {
-    color: "white",
+  brandName: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#FF6B7A",
+    letterSpacing: -0.5,
+  },
+  brandDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF6B7A",
+    marginLeft: 6,
+  },
+  loader: {
+    marginBottom: 16,
+  },
+  loadingText: {
     fontSize: 16,
-    fontWeight: "600",
+    color: "#666666",
+    fontWeight: "400",
   },
 });

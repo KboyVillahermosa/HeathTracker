@@ -1,31 +1,32 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import React from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { WaterTracker } from '../../components/WaterTracker';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfile } from '../../hooks/useProfile';
 
 export default function Home() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { signOut } = useAuth();
+  const { profile, loading } = useProfile();
 
-  useEffect(() => {
-    getCurrentUser();
-  }, []);
-
-  const getCurrentUser = async () => {
+  const handleSignOut = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserEmail(user?.email || null);
+      await signOut();
+      router.replace('/(auth)/login');
     } catch (error) {
-      console.error('Error fetching user:', error);
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', 'Failed to sign out');
     }
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/(auth)/login');
+  const navigateToWater = () => {
+    // TODO: Navigate to water tracking screen
+    Alert.alert('Coming Soon', 'Water tracking screen will be available soon');
+  };
+
+  const navigateToMedications = () => {
+    // TODO: Navigate to medications screen
+    Alert.alert('Coming Soon', 'Medications screen will be available soon');
   };
 
   return (
@@ -39,7 +40,8 @@ export default function Home() {
           <TouchableOpacity style={styles.profileButton}>
             <View style={styles.profileIcon}>
               <Text style={styles.profileText}>
-                {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
+                {profile?.name ? profile.name.charAt(0).toUpperCase() : 
+                 profile?.email ? profile.email.charAt(0).toUpperCase() : 'U'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -58,10 +60,12 @@ export default function Home() {
               <Text style={styles.welcomeSubtitle}>Loading your profile...</Text>
             ) : (
               <Text style={styles.welcomeSubtitle}>
-                {userEmail ? `${userEmail}` : 'Ready to track your health?'}
+                {profile?.name || profile?.email || 'Ready to track your health?'}
               </Text>
             )}
           </View>
+          
+          <WaterTracker />
           
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
@@ -70,23 +74,29 @@ export default function Home() {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Health points</Text>
+              <Text style={styles.statLabel}>Medications</Text>
             </View>
           </View>
           
           <View style={styles.quickActions}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={navigateToWater}>
               <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>📊</Text>
+                <Text style={styles.actionEmoji}>💧</Text>
               </View>
-              <Text style={styles.actionText}>Log Health Data</Text>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionText}>Water Tracking</Text>
+                <Text style={styles.actionSubtext}>Log your daily intake</Text>
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={navigateToMedications}>
               <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>📋</Text>
+                <Text style={styles.actionEmoji}>💊</Text>
               </View>
-              <Text style={styles.actionText}>View Reports</Text>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionText}>Medications</Text>
+                <Text style={styles.actionSubtext}>Manage your medicines</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -227,10 +237,18 @@ const styles = StyleSheet.create({
   actionEmoji: {
     fontSize: 18,
   },
+  actionContent: {
+    flex: 1,
+  },
   actionText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#1A1A1A',
+  },
+  actionSubtext: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 2,
   },
   bottomSection: {
     paddingHorizontal: 24,
