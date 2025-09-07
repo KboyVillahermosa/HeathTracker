@@ -8,6 +8,12 @@ export default function Home() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
+  const [waterConsumed, setWaterConsumed] = useState(1200);
+  const [waterGoal, setWaterGoal] = useState(2000);
+  const [medicinesTaken, setMedicinesTaken] = useState(2);
+  const [medicinesTotal, setMedicinesTotal] = useState(3);
+  const [streak, setStreak] = useState(7);
 
   useEffect(() => {
     getCurrentUser();
@@ -27,6 +33,14 @@ export default function Home() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.replace('/(auth)/login');
+  };
+
+  const getWaterProgress = () => {
+    return Math.min((waterConsumed / waterGoal) * 100, 100);
+  };
+
+  const getAdherenceRate = () => {
+    return Math.round((medicinesTaken / medicinesTotal) * 100);
   };
 
   return (
@@ -64,32 +78,112 @@ export default function Home() {
             )}
           </View>
           
+          {/* Water Tracking Card */}
+          <View style={styles.featureCard}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>💧 Water Tracking</Text>
+              <TouchableOpacity onPress={() => router.push('/screen/water/water')}>
+                <Text style={styles.cardAction}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { width: `${getWaterProgress()}%` }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {waterConsumed}ml / {waterGoal}ml
+              </Text>
+            </View>
+            <Text style={styles.cardSubtext}>
+              {waterGoal - waterConsumed}ml remaining today
+            </Text>
+          </View>
+
+          {/* Medicine Reminders Card */}
+          <View style={styles.featureCard}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>💊 Medicine Reminders</Text>
+              <TouchableOpacity onPress={() => router.push('/screen/medicines/medicine')}>
+                <Text style={styles.cardAction}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.cardValue}>
+              {medicinesTaken}/{medicinesTotal} medicines taken
+            </Text>
+            <Text style={styles.cardSubtext}>
+              {getAdherenceRate()}% adherence rate
+            </Text>
+          </View>
+
+          {/* Stats Overview */}
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Days tracked</Text>
+              <Text style={styles.statNumber}>{streak}</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Health points</Text>
+              <Text style={styles.statNumber}>{getAdherenceRate()}%</Text>
+              <Text style={styles.statLabel}>Adherence</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{isPremium ? '∞' : '3'}</Text>
+              <Text style={styles.statLabel}>Medicines</Text>
             </View>
           </View>
           
+          {/* Quick Actions */}
           <View style={styles.quickActions}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/screen/water/water')}  
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.actionEmoji}>💧</Text>
+              </View>
+              <Text style={styles.actionText}>Log Water</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/screen/medicines/medicine')}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.actionEmoji}>💊</Text>
+              </View>
+              <Text style={styles.actionText}>Mark Medicine</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/screen/reports/report')}
+            >
               <View style={styles.actionIcon}>
                 <Text style={styles.actionEmoji}>📊</Text>
-              </View>
-              <Text style={styles.actionText}>Log Health Data</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>📋</Text>
               </View>
               <Text style={styles.actionText}>View Reports</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Premium Upgrade */}
+          {!isPremium && (
+            <View style={styles.premiumCard}>
+              <Text style={styles.premiumTitle}>Upgrade to Premium</Text>
+              <Text style={styles.premiumSubtitle}>Unlock unlimited features</Text>
+              <Text style={styles.premiumFeatures}>
+                • Unlimited medicines & reminders{'\n'}
+                • Advanced analytics & export{'\n'}
+                • Cloud sync & backup{'\n'}
+                • 7-day free trial
+              </Text>
+              <TouchableOpacity style={styles.premiumButton}>
+                <Text style={styles.premiumButtonText}>Start Free Trial</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
       
@@ -158,7 +252,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   welcomeSection: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   welcomeTitle: {
     fontSize: 24,
@@ -172,31 +266,84 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontWeight: '400',
   },
+  featureCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  cardAction: {
+    fontSize: 14,
+    color: '#FF6B7A',
+    fontWeight: '500',
+  },
+  progressContainer: {
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  cardValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  cardSubtext: {
+    fontSize: 14,
+    color: '#666666',
+  },
   statsContainer: {
     flexDirection: 'row',
-    marginBottom: 32,
-    gap: 16,
+    marginBottom: 24,
+    gap: 12,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#F8F9FA',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FF6B7A',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666666',
     fontWeight: '500',
   },
   quickActions: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 20,
@@ -228,6 +375,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#1A1A1A',
+  },
+  premiumCard: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#FFB74D',
+  },
+  premiumTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#E65100',
+    marginBottom: 4,
+  },
+  premiumSubtitle: {
+    fontSize: 14,
+    color: '#E65100',
+    marginBottom: 12,
+  },
+  premiumFeatures: {
+    fontSize: 14,
+    color: '#E65100',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  premiumButton: {
+    backgroundColor: '#FF6B7A',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  premiumButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
   

@@ -15,21 +15,21 @@ const BottomNavigation: React.FC<Props> = ({ onSignOut }) => {
         <Text style={styles.icon}>🏠</Text>
         <Text style={styles.label}>Home</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.tab} onPress={() => {/* navigate to log health data */}}>
-        <Text style={styles.icon}>📊</Text>
-        <Text style={styles.label}>Log</Text>
+      <TouchableOpacity style={styles.tab} onPress={() => router.replace('/screen/water/water')}>
+        <Text style={styles.icon}>💧</Text>
+        <Text style={styles.label}>Water</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.tab} onPress={() => {/* navigate to reports */}}>
-        <Text style={styles.icon}>📋</Text>
+      <TouchableOpacity style={styles.tab} onPress={() => router.replace('/screen/medicines/medicine')}>
+        <Text style={styles.icon}>💊</Text>
+        <Text style={styles.label}>Medicines</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.tab} onPress={() => router.replace('/screen/reports/report')}>
+        <Text style={styles.icon}>📊</Text>
         <Text style={styles.label}>Reports</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.tab} onPress={() => router.replace('/screen/profle/profile')}>
         <Text style={styles.icon}>👤</Text>
         <Text style={styles.label}>Profile</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.tab} onPress={onSignOut}>
-        <Text style={styles.icon}>🚪</Text>
-        <Text style={styles.label}>Sign out</Text>
       </TouchableOpacity>
     </View>
   );
