@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BottomNavigation from '../../components/BottomNavigation';
 import { supabase } from '../../lib/supabase';
 
 export default function Home() {
@@ -92,11 +93,7 @@ export default function Home() {
         </View>
       </ScrollView>
       
-      <View style={styles.bottomSection}>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign out</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavigation onSignOut={handleSignOut} />
     </View>
   );
 }
@@ -232,23 +229,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1A1A1A',
   },
-  bottomSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 16,
-  },
-  signOutButton: {
-    height: 48,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666666',
-  },
 });
+  
