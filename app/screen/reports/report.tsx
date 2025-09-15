@@ -1,24 +1,49 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../../components/BottomNavigation';
 import { supabase } from '../../../lib/supabase';
 
+type Weekly = {
+  week: string;
+  water_total_ml: number | null;
+  meds_taken: number | null;
+  meds_expected: number | null;
+  adherence_pct: number | null;
+};
+
 export default function Reports() {
   const router = useRouter();
-  const [isPremium, setIsPremium] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [rows, setRows] = useState<Weekly[]>([]);
+  const [isPremium] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'custom'>('week');
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id ?? null);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (userId) loadWeekly();
+  }, [userId]);
+
+  const loadWeekly = async () => {
+    const { data, error } = await supabase
+      .from('v_weekly_summary')
+      .select('*')
+      .eq('user_id', userId)
+      .order('week', { ascending: false })
+      .limit(12);
+    if (error) Alert.alert('Error', error.message);
+    else setRows(data ?? []);
+  };
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!isPremium) {
-      Alert.alert(
-        'Premium Feature',
-        'Export functionality is available in Premium plan only.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => {} }
-        ]
-      );
+      Alert.alert('Premium Feature', 'Export is available in Premium.');
       return;
     }
     Alert.alert('Export', `${format.toUpperCase()} export started`);
@@ -26,22 +51,10 @@ export default function Reports() {
 
   const handleShare = () => {
     if (!isPremium) {
-      Alert.alert(
-        'Premium Feature',
-        'Share functionality is available in Premium plan only.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => {} }
-        ]
-      );
+      Alert.alert('Premium Feature', 'Share is available in Premium.');
       return;
     }
     Alert.alert('Share', 'Share report via email/messenger');
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/(auth)/login');
   };
 
   return (
@@ -55,113 +68,46 @@ export default function Reports() {
           <Text style={styles.headerTitle}>Reports</Text>
         </View>
       </View>
-      
+
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
-          {/* Period Selection */}
-          <View style={styles.periodSection}>
-            <Text style={styles.sectionTitle}>Report Period</Text>
-            <View style={styles.periodButtons}>
-              {['week', 'month', 'custom'].map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  style={[
-                    styles.periodButton,
-                    selectedPeriod === period && styles.periodButtonActive
-                  ]}
-                  onPress={() => setSelectedPeriod(period)}
-                >
-                  <Text style={[
-                    styles.periodButtonText,
-                    selectedPeriod === period && styles.periodButtonTextActive
-                  ]}>
-                    {period.charAt(0).toUpperCase() + period.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Weekly Summary */}
           <View style={styles.summarySection}>
             <Text style={styles.sectionTitle}>Weekly Summary</Text>
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Water Intake</Text>
-                <Text style={styles.summaryValue}>12.5L</Text>
+            {rows.map((r) => (
+              <View key={r.week} style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Week</Text>
+                  <Text style={styles.summaryValue}>{new Date(r.week).toDateString()}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Water Intake</Text>
+                  <Text style={styles.summaryValue}>{r.water_total_ml ?? 0} ml</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Medicines Taken</Text>
+                  <Text style={styles.summaryValue}>{r.meds_taken ?? 0}/{r.meds_expected ?? 0}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Adherence</Text>
+                  <Text style={styles.summaryValue}>{r.adherence_pct ?? 0}%</Text>
+                </View>
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Medicines Taken</Text>
-                <Text style={styles.summaryValue}>18/21</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Adherence Rate</Text>
-                <Text style={styles.summaryValue}>85.7%</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Streak</Text>
-                <Text style={styles.summaryValue}>7 days</Text>
-              </View>
-            </View>
+            ))}
           </View>
 
-          {/* Charts Placeholder */}
-          <View style={styles.chartsSection}>
-            <Text style={styles.sectionTitle}>Charts & Insights</Text>
-            <View style={styles.chartPlaceholder}>
-              <Text style={styles.chartText}>Water intake chart</Text>
-            </View>
-            <View style={styles.chartPlaceholder}>
-              <Text style={styles.chartText}>Medicine adherence chart</Text>
-            </View>
-          </View>
-
-          {/* Premium Features */}
           {!isPremium && (
             <View style={styles.premiumSection}>
               <Text style={styles.premiumTitle}>Unlock Premium Reports</Text>
-              <Text style={styles.premiumText}>
-                • Monthly & custom-range reports{'\n'}
-                • CSV/PDF export{'\n'}
-                • Share via email/messenger{'\n'}
-                • Advanced analytics
-              </Text>
+              <Text style={styles.premiumText}>Monthly/custom reports, CSV/PDF export, share.</Text>
               <TouchableOpacity style={styles.premiumButton}>
                 <Text style={styles.premiumButtonText}>Start 7-Day Free Trial</Text>
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Export & Share */}
-          {isPremium && (
-            <View style={styles.exportSection}>
-              <Text style={styles.sectionTitle}>Export & Share</Text>
-              <View style={styles.exportButtons}>
-                <TouchableOpacity 
-                  style={styles.exportButton}
-                  onPress={() => handleExport('csv')}
-                >
-                  <Text style={styles.exportButtonText}>Export CSV</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.exportButton}
-                  onPress={() => handleExport('pdf')}
-                >
-                  <Text style={styles.exportButtonText}>Export PDF</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.shareButton}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.shareButtonText}>Share Report</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
         </View>
       </ScrollView>
-      
-      <BottomNavigation onSignOut={handleSignOut} />
+
+      <BottomNavigation onSignOut={() => {}} />
     </View>
   );
 }

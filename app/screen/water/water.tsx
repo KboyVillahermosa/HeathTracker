@@ -1,34 +1,117 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../../components/BottomNavigation';
 import { supabase } from '../../../lib/supabase';
 
 export default function WaterTracking() {
   const router = useRouter();
-  const [waterGoal, setWaterGoal] = useState(2000); // ml
-  const [waterConsumed, setWaterConsumed] = useState(0);
-  const [isPremium, setIsPremium] = useState(false);
-  const [reminders, setReminders] = useState(6); // Basic: 6, Premium: unlimited
-  const [streak, setStreak] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [goal, setGoal] = useState<number>(2000);
+  const [todayTotal, setTodayTotal] = useState<number>(0);
+  const [remindersCount, setRemindersCount] = useState<number>(0);
+  const [streak, setStreak] = useState<number>(0);
 
-  const quickLogAmounts = [200, 250, 300];
+  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const handleQuickLog = (amount: number) => {
-    setWaterConsumed(prev => prev + amount);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id ?? null);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (userId) loadAll();
+  }, [userId]);
+
+  const loadAll = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadGoal(), loadTodayTotal(), loadReminders(), loadStreak()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const handleReset = () => {
-    setWaterConsumed(0);
+  const loadGoal = async () => {
+    const { data, error } = await supabase
+      .from('water_goals')
+      .select('daily_goal_ml')
+      .eq('user_id', userId)
+      .single();
+    if (!error && data?.daily_goal_ml) setGoal(data.daily_goal_ml);
   };
 
-  const getProgressPercentage = () => {
-    return Math.min((waterConsumed / waterGoal) * 100, 100);
+  const loadTodayTotal = async () => {
+    const { data, error } = await supabase
+      .from('v_water_daily')
+      .select('total_ml')
+      .eq('user_id', userId)
+      .gte('day', todayISO)
+      .lte('day', todayISO)
+      .maybeSingle();
+    if (!error) setTodayTotal(data?.total_ml ?? 0);
   };
 
-  const getRemainingWater = () => {
-    return Math.max(waterGoal - waterConsumed, 0);
+  const loadReminders = async () => {
+    const { count } = await supabase
+      .from('water_reminders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    setRemindersCount(count ?? 0);
   };
+
+  const loadStreak = async () => {
+    // naive streak: count of consecutive days up to today where total >= goal
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const { data } = await supabase
+      .from('v_water_daily')
+      .select('day,total_ml')
+      .eq('user_id', userId)
+      .gte('day', since.toISOString().slice(0, 10))
+      .order('day', { ascending: false });
+    let s = 0;
+    let day = new Date(todayISO + 'T00:00:00Z');
+    for (const row of data ?? []) {
+      const rd = new Date(row.day);
+      if (rd.toDateString() !== day.toDateString()) break;
+      if ((row.total_ml ?? 0) >= goal) {
+        s += 1;
+        day.setDate(day.getDate() - 1);
+      } else break;
+    }
+    setStreak(s);
+  };
+
+  const quickLog = async (amount: number) => {
+    if (!userId) return;
+    const { error } = await supabase.from('water_logs').insert({
+      user_id: userId,
+      amount_ml: amount,
+      source: `quick-${amount}`,
+    });
+    if (error) Alert.alert('Error', error.message);
+    await loadTodayTotal();
+    await loadStreak();
+  };
+
+  const setDefaultGoalIfMissing = async () => {
+    if (!userId) return;
+    const { data } = await supabase.from('water_goals').select('id').eq('user_id', userId).maybeSingle();
+    if (!data) {
+      await supabase.from('water_goals').insert({ user_id: userId, daily_goal_ml: goal, auto_goal: false });
+    }
+  };
+
+  useEffect(() => {
+    if (userId) setDefaultGoalIfMissing();
+  }, [userId]);
+
+  const remaining = Math.max(goal - todayTotal, 0);
+  const pct = Math.min((todayTotal / goal) * 100, 100);
 
   return (
     <View style={styles.container}>
@@ -41,84 +124,48 @@ export default function WaterTracking() {
           <Text style={styles.headerTitle}>Water Tracking</Text>
         </View>
       </View>
-      
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadAll} />}
+      >
         <View style={styles.content}>
-          {/* Water Goal Progress */}
           <View style={styles.progressSection}>
             <Text style={styles.sectionTitle}>Todays Goal</Text>
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${getProgressPercentage()}%` }
-                  ]} 
-                />
+                <View style={[styles.progressFill, { width: `${pct}%` }]} />
               </View>
-              <Text style={styles.progressText}>
-                {waterConsumed}ml / {waterGoal}ml
-              </Text>
+              <Text style={styles.progressText}>{todayTotal}ml / {goal}ml</Text>
             </View>
-            <Text style={styles.remainingText}>
-              {getRemainingWater()}ml remaining
-            </Text>
+            <Text style={styles.remainingText}>{remaining}ml remaining</Text>
           </View>
 
-          {/* Quick Log Buttons */}
           <View style={styles.quickLogSection}>
             <Text style={styles.sectionTitle}>Quick Log</Text>
             <View style={styles.quickLogButtons}>
-              {quickLogAmounts.map((amount) => (
-                <TouchableOpacity
-                  key={amount}
-                  style={styles.quickLogButton}
-                  onPress={() => handleQuickLog(amount)}
-                >
-                  <Text style={styles.quickLogText}>+{amount}ml</Text>
+              {[200, 250, 300].map(a => (
+                <TouchableOpacity key={a} style={styles.quickLogButton} onPress={() => quickLog(a)}>
+                  <Text style={styles.quickLogText}>+{a}ml</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Stats */}
           <View style={styles.statsSection}>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{streak}</Text>
               <Text style={styles.statLabel}>Day Streak</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{reminders}</Text>
+              <Text style={styles.statNumber}>{remindersCount}</Text>
               <Text style={styles.statLabel}>Reminders</Text>
-            </View>
-          </View>
-
-          {/* Premium Features */}
-          {!isPremium && (
-            <View style={styles.premiumSection}>
-              <Text style={styles.premiumTitle}>Unlock Premium Features</Text>
-              <Text style={styles.premiumText}>
-                • Unlimited reminders{'\n'}
-                • Smart goal adjustment{'\n'}
-                • Monthly charts & insights{'\n'}
-                • CSV/PDF export
-              </Text>
-              <TouchableOpacity style={styles.premiumButton}>
-                <Text style={styles.premiumButtonText}>Start 7-Day Free Trial</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* History */}
-          <View style={styles.historySection}>
-            <Text style={styles.sectionTitle}>7-Day History</Text>
-            <View style={styles.historyPlaceholder}>
-              <Text style={styles.historyText}>History chart will appear here</Text>
             </View>
           </View>
         </View>
       </ScrollView>
-      
+
       <BottomNavigation onSignOut={() => {}} />
     </View>
   );
